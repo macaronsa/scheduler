@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f78">
+<meta name="description" content="やることと空き時間を入れると、今日の予定が自動で組まれるスケジューラー">
 <title>やりたいこと全部入れるスケジューラー</title>
 <style>
 :root{color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
@@ -37,10 +39,11 @@ li input[type=checkbox]{width:18px;height:18px;min-height:0;flex:none}
 .must{color:var(--must)}.due{color:var(--due)}.want{color:var(--want)}.rest{color:var(--rest)}
 .x{background:none;border:0;color:var(--tx2);min-height:32px;padding:0 6px;font-weight:400}
 .sl{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.b{display:flex;gap:10px;align-items:baseline;padding:8px 10px;margin-bottom:6px;border-radius:6px;border-left:4px solid currentColor;background:color-mix(in srgb,currentColor 10%,var(--card))}
+.b{display:flex;gap:10px;align-items:center;padding:8px 10px;margin-bottom:6px;border-radius:6px;border-left:4px solid currentColor;background:color-mix(in srgb,currentColor 10%,var(--card))}
 .b .t{font-size:12px;color:var(--tx2);width:96px;flex:none;font-variant-numeric:tabular-nums}
 .b .c{color:var(--tx);flex:1;overflow-wrap:anywhere}
 .b .d{font-size:12px;color:var(--tx2)}
+.b .x{min-height:28px;padding:0 8px}
 .sum{font-size:13px;color:var(--tx2);margin:0 0 10px}
 .ov{margin-top:10px;padding:10px;border:1px dashed var(--due);border-radius:6px;font-size:13px;color:var(--tx)}
 .em{color:var(--tx2);font-size:13px;margin:6px 0}
@@ -73,20 +76,26 @@ li.dim{opacity:.55}.ac{width:76px;padding:2px 6px;min-height:30px;font-size:12px
 </section>
 </div>
 <section class="card"><h2>今日の予定</h2>
-<p class="sum" id="sum"></p><div id="sc"></div><div id="ov"></div>
+<p class="sum" id="sum"></p><p class="sum" id="mo"></p><div id="sc"></div><div id="ov"></div>
 </section>
 </div>
 <script>
-var KEY='sched.v1',LB={must:'必須',due:'期限付き',want:'やりたいこと'};
+var KEY='sched.v1',LB={must:'必須',due:'期限付き',want:'やりたいこと'},PR={must:0,due:1,want:2};
 var S={tasks:[{id:1,nm:'基本情報の勉強',min:90,ty:'must',dl:'',done:false},{id:2,nm:'レポート',min:120,ty:'due',dl:'',done:false},{id:3,nm:'競プロ1問',min:30,ty:'want',dl:'',done:false}],slots:[{s:'09:00',e:'11:00'},{s:'12:30',e:'13:30'},{s:'16:00',e:'20:00'}]};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.tasks&&p.slots)S=p}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-var TD=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
 function DS(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-var DW=new Date().getDay(),TM=DS(new Date(Date.now()+864e5));
+var TD=DS(new Date()),DW=new Date().getDay(),TM=DS(new Date(Date.now()+864e5));
+// 開きっぱなしのまま日付が変わったら読み込み直す（「明日へ」が解除されないのを防ぐ）
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&DS(new Date())!==TD)location.reload()});
 function dys(){var a=[];document.querySelectorAll('#wd input').forEach(function(c){if(c.checked)a.push(+c.value)});return a}
+function fd(i){return S.tasks.find(function(x){return x.id===i})}
+function nid(){var m=Date.now();S.tasks.forEach(function(t){if(t.id>=m)m=t.id+1});return m}
 function ID(t){return t.daily?t.doneOn===TD:!!t.done}
-function AC(t){if(t.hold&&t.hold>TD)return false;if(t.days&&t.days.length&&t.days.indexOf(DW)<0)return false;return true}
+function HD(t){return !!((t.hold&&t.hold>TD)||(t.daily&&t.skipOn===TD))}
+function AC(t){if(HD(t))return false;if(t.days&&t.days.length&&t.days.indexOf(DW)<0)return false;return true}
+function W(t){return t.ty==='must'?3:t.ty==='due'?(t.dl&&t.dl<=TM?3:2):1}
+function MAN(){return S.man&&S.man.on===TD&&S.man.sl?S.man:null}
 function A(t){return t.daily?(t.actOn===TD?t.act:''):(t.act||'')}
 function EST(t){var h=S.hist&&S.hist[t.nm];if(!h||!h.length)return t.min;var r=h.reduce(function(a,b){return a+b},0)/h.length;return Math.max(5,Math.round(t.min*r/5)*5)}
 function M(t){var a=(t||'0:0').split(':');return (+a[0])*60+(+a[1]||0)}
@@ -94,38 +103,70 @@ function F(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).p
 function E(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function addTask(){var nm=document.getElementById('nm'),n=nm.value.trim();if(!n){nm.focus();return}
 var mn=Math.max(5,parseInt(document.getElementById('mn').value)||30);
-S.tasks.push({id:Date.now(),nm:n,min:mn,ty:document.getElementById('ty').value,dl:document.getElementById('dl').value,done:false,daily:dys().length>0||document.getElementById('dy').checked,days:dys()});
+S.tasks.push({id:nid(),nm:n,min:mn,ty:document.getElementById('ty').value,dl:document.getElementById('dl').value,done:false,daily:dys().length>0||document.getElementById('dy').checked,days:dys()});
 nm.value='';document.getElementById('dl').value='';document.getElementById('dy').checked=false;document.querySelectorAll('#wd input').forEach(function(c){c.checked=false});upd()}
-function tog(i){var t=S.tasks.find(function(x){return x.id===i});if(t){if(t.daily){t.doneOn=(t.doneOn===TD)?'':TD}else{t.done=!t.done}upd()}}
+function tog(i){var t=fd(i);if(t){if(t.daily){t.doneOn=(t.doneOn===TD)?'':TD}else{t.done=!t.done}upd()}}
 function del(i){S.tasks=S.tasks.filter(function(x){return x.id!==i});upd()}
-function setAct(i,v){var t=S.tasks.find(function(x){return x.id===i}),a=parseInt(v);if(!t||!a||a<1)return;S.hist=S.hist||{};var h=S.hist[t.nm]=S.hist[t.nm]||[];if(A(t)&&h.length)h.pop();h.push(a/t.min);if(h.length>5)h.shift();t.act=a;t.actOn=TD;upd()}
+function setAct(i,v){var t=fd(i),a=parseInt(v);if(!t||!a||a<1)return;S.hist=S.hist||{};var h=S.hist[t.nm]=S.hist[t.nm]||[];if(A(t)&&h.length)h.pop();h.push(a/t.min);if(h.length>5)h.shift();t.act=a;t.actOn=TD;upd()}
 var TP={inst:[['ロングトーン',10,'must'],['音階・基礎練習',15,'must'],['曲の通し練習',30,'must'],['録音して聴き返す',15,'want']],study:[['過去問を解く',30,'must'],['間違えた問題の復習',20,'must'],['暗記カード',10,'want']],morn:[['身支度と朝食',40,'must'],['今日の予定の確認',5,'must']]};
-function addTpl(){var k=document.getElementById('tp').value;if(!k)return;TP[k].forEach(function(x,i){S.tasks.push({id:Date.now()+i,nm:x[0],min:x[1],ty:x[2],dl:'',done:false,daily:false,days:[]})});document.getElementById('tp').value='';upd()}
-function moveLeft(){plan().left.forEach(function(k,i){var t=S.tasks.find(function(x){return x.id===k.id});if(!t||t.daily)return;if(k.rem<k.tot){S.tasks.push({id:Date.now()+i,nm:t.nm+'（続き）',min:k.rem,ty:t.ty,dl:t.dl,done:false,daily:false,days:[],hold:TM});t.min=Math.max(5,t.min-Math.round(k.rem*t.min/k.tot))}else{t.hold=TM}});upd()}
+function addTpl(){var k=document.getElementById('tp').value;if(!k)return;TP[k].forEach(function(x){S.tasks.push({id:nid(),nm:x[0],min:x[1],ty:x[2],dl:'',done:false,daily:false,days:[]})});document.getElementById('tp').value='';upd()}
+// 毎日のタスクは今日だけスキップ、それ以外は明日まで保留（途中まで入った分は「続き」に分ける）
+// 今日の予定はそのまま残すため、先に今の並びを固定する
+function moveLeft(){var p=plan();S.man=frz(p);p.left.forEach(function(k){var t=fd(k.id);if(!t)return;if(t.daily){t.skipOn=TD;return}
+if(k.rem<k.tot){var r=Math.max(5,Math.round(k.rem*t.min/k.tot));S.tasks.push({id:nid(),nm:t.nm.replace(/（続き）$/,'')+'（続き）',min:r,ty:t.ty,dl:t.dl,done:false,daily:false,days:[],hold:TM});t.min=Math.max(5,t.min-r)}else{t.hold=TM}});upd()}
+function back(i){var t=fd(i);if(t){t.hold='';t.skipOn='';upd()}}
+function backAll(){S.tasks.forEach(function(t){t.hold='';t.skipOn=''});upd()}
+// 今の予定から「並び順」と「どの時間帯か（最初に入った時間帯）」を取り出す
+function frz(p){var ids=[],sl={};p.out.forEach(function(b){if(b.id&&ids.indexOf(b.id)<0){ids.push(b.id);sl[b.id]=b.si}});
+p.left.forEach(function(k){if(ids.indexOf(k.id)<0){ids.push(k.id);sl[k.id]=p.ns-1}});return{on:TD,ids:ids,sl:sl}}
+// 前後のタスクと、順番も時間帯もまるごと入れ替える
+function mv(id,d){var m=frz(plan()),ids=m.ids,i=ids.indexOf(id),j=i+d;if(i<0||j<0||j>=ids.length)return;
+var o=ids[j],s=m.sl[id];ids[i]=o;ids[j]=id;m.sl[id]=m.sl[o];m.sl[o]=s;S.man=m;upd()}
+function autoP(){S.man=null;upd()}
 function addSlot(){S.slots.push({s:'20:00',e:'21:00'});upd()}
 function delSlot(i){S.slots.splice(i,1);upd()}
 function setSlot(i,k,v){if(v){S.slots[i][k]=v;upd(true)}}
+// 0/1ナップサック: 容量 cap に丸ごと収まる組み合わせのうち「分×優先度の重み」が最大のもの
+function ks(a,cap){var n=a.length,dp=[],kp=[],i,c;for(c=0;c<=cap;c++)dp[c]=0;
+for(i=0;i<n;i++){var w=a[i].rem,v=w*a[i].w*1e5+(n-i),k=kp[i]=[];for(c=cap;c>=w;c--)if(dp[c-w]+v>dp[c]){dp[c]=dp[c-w]+v;k[c]=1}}
+var r=[];c=cap;for(i=n-1;i>=0;i--)if(kp[i][c]){r.push(a[i]);c-=a[i].rem}return r}
 function plan(){
 var sl=S.slots.map(function(x){return{s:M(x.s),e:M(x.e)}}).filter(function(x){return x.e>x.s}).sort(function(a,b){return a.s-b.s});
-var pr={must:0,due:1,want:2};
-var q=S.tasks.filter(function(t){return !ID(t)&&AC(t)}).map(function(t){var e=EST(t);return{id:t.id,nm:t.nm,ty:t.ty,dl:t.dl,rem:e,tot:e}})
-.sort(function(a,b){return (pr[a.ty]-pr[b.ty])||(a.dl||'9999').localeCompare(b.dl||'9999')});
+sl.forEach(function(x,i){x.x=x.e;if(i===sl.length-1&&x.e-x.s>=90)x.e-=30;x.cap=x.e-x.s;x.it=[]});
+var q=S.tasks.filter(function(t){return !ID(t)&&AC(t)}).map(function(t){var e=EST(t);return{id:t.id,nm:t.nm,ty:t.ty,dl:t.dl,w:W(t),rem:e,tot:e}})
+.sort(function(a,b){return (PR[a.ty]-PR[b.ty])||(a.dl||'9999').localeCompare(b.dl||'9999')});
+q.forEach(function(k,i){k.r=i});
+var man=MAN();
+if(man){
+// 手動: 各時間帯に割り当てたタスクを順に詰め、あふれた分は次の時間帯の先頭へ回す（新しいタスクは最後の時間帯）
+q.forEach(function(k){var j=man.ids.indexOf(k.id);k.r=j<0?man.ids.length+k.r:j;k.si=Math.min(sl.length-1,k.id in man.sl?man.sl[k.id]:sl.length-1)});q.sort(function(a,b){return a.r-b.r});
+var cr=[];sl.forEach(function(x,i){var ls=cr.concat(q.filter(function(k){return k.si===i}));cr=[];
+ls.forEach(function(k){var c=Math.min(k.rem,x.cap);if(!c||(c<15&&k.rem>c)){cr.push(k);return}x.it.push({k:k,c:c});x.cap-=c;k.rem-=c;if(k.rem)cr.push(k)})});
+q=q.filter(function(k){return k.rem>0})
+}else{
+// 自動: まず各時間帯に丸ごと収まる組み合わせを選び、入らなかったものだけ隙間に分割して入れる
+sl.forEach(function(x){ks(q,x.cap).forEach(function(k){x.it.push({k:k,c:k.rem});x.cap-=k.rem;k.rem=0});q=q.filter(function(k){return k.rem>0})});
+q.forEach(function(k){sl.forEach(function(x){var c=Math.min(k.rem,x.cap);if(!c||(c<15&&k.rem>c))return;x.it.push({k:k,c:c});x.cap-=c;k.rem-=c})});
+q=q.filter(function(k){return k.rem>0});
+sl.forEach(function(x){x.it.sort(function(a,b){return a.k.r-b.k.r})})}
+// 休憩は余った時間があるときだけ挟む
 var out=[];
-sl.forEach(function(x,i){var t=x.s,end=x.e,last=i===sl.length-1;if(last&&end-t>=90)end-=30;
-while(t<end&&q.length){var k=q[0],c=Math.min(k.rem,end-t);if(c<15&&k.rem>c)break;
-out.push({s:t,e:t+c,n:k.nm,ty:k.ty});t+=c;k.rem-=c;if(!k.rem)q.shift();
-if(q.length&&t+10<=end){out.push({s:t,e:t+10,n:'休憩',ty:'rest'});t+=10}}
-if(last&&end<x.e)out.push({s:end,e:x.e,n:'予備時間',ty:'rest'})});
-return{out:out,left:q,free:sl.reduce(function(a,x){return a+x.e-x.s},0)}}
+sl.forEach(function(x,i){var t=x.s,sk=x.cap;x.it.forEach(function(p,j){out.push({s:t,e:t+p.c,n:p.k.nm,ty:p.k.ty,id:p.k.id,si:i});t+=p.c;
+if(j<x.it.length-1&&sk>=10){out.push({s:t,e:t+10,n:'休憩',ty:'rest'});t+=10;sk-=10}});
+if(x.x>x.e)out.push({s:x.e,e:x.x,n:'予備時間',ty:'rest'})});
+return{out:out,left:q,ns:sl.length,free:sl.reduce(function(a,x){return a+x.x-x.s},0)}}
 function render(slots){
 if(!slots){document.getElementById('sl').innerHTML=S.slots.map(function(x,i){return '<div class="sl"><input type="time" value="'+E(x.s)+'" onchange="setSlot('+i+',\'s\',this.value)" aria-label="開始"><span class="m">から</span><input type="time" value="'+E(x.e)+'" onchange="setSlot('+i+',\'e\',this.value)" aria-label="終了"><button class="x" onclick="delSlot('+i+')" aria-label="削除">削除</button></div>'}).join('')||'<p class="em">空き時間を追加すると、予定が組まれます。</p>'}
 var tl=document.getElementById('tl');
-tl.innerHTML=S.tasks.map(function(t){return '<li class="'+(ID(t)?'d ':'')+(AC(t)?'':'dim')+'"><input type="checkbox" '+(ID(t)?'checked':'')+' onchange="tog('+t.id+')" aria-label="完了"><span class="n">'+E(t.nm)+'</span><span class="m">'+t.min+'分'+(EST(t)!==t.min?'→'+EST(t)+'分':'')+(t.hold&&t.hold>TD?' 明日へ':'')+(t.dl?' 〜'+E(t.dl.slice(5).replace('-','/')):'')+'</span><span class="chip '+t.ty+'">'+LB[t.ty]+'</span>'+(t.daily?'<span class="chip rest">'+(t.days&&t.days.length?t.days.map(function(d){return '日月火水木金土'[d]}).join(''):'毎日')+'</span>':'')+(ID(t)?'<input class="ac" type="number" min="1" placeholder="実績分" value="'+A(t)+'" onchange="setAct('+t.id+',this.value)" aria-label="かかった時間（分）">':'')+'<button class="x" onclick="del('+t.id+')" aria-label="削除">削除</button></li>'}).join('')||'<p class="em">やることを追加すると、ここに並びます。</p>';
+tl.innerHTML=S.tasks.map(function(t){return '<li class="'+(ID(t)?'d ':'')+(AC(t)?'':'dim')+'"><input type="checkbox" '+(ID(t)?'checked':'')+' onchange="tog('+t.id+')" aria-label="完了"><span class="n">'+E(t.nm)+'</span><span class="m">'+t.min+'分'+(EST(t)!==t.min?'→'+EST(t)+'分':'')+(t.dl?' 〜'+E(t.dl.slice(5).replace('-','/')):'')+'</span><span class="chip '+t.ty+'">'+LB[t.ty]+'</span>'+(t.daily?'<span class="chip rest">'+(t.days&&t.days.length?t.days.map(function(d){return '日月火水木金土'[d]}).join(''):'毎日')+'</span>':'')+(HD(t)?'<span class="chip rest">'+(t.daily?'今日はスキップ':'明日へ')+'</span><button class="x" onclick="back('+t.id+')">今日に戻す</button>':'')+(ID(t)?'<input class="ac" type="number" min="1" placeholder="実績分" value="'+A(t)+'" onchange="setAct('+t.id+',this.value)" aria-label="かかった時間（分）">':'')+'<button class="x" onclick="del('+t.id+')" aria-label="削除">削除</button></li>'}).join('')||'<p class="em">やることを追加すると、ここに並びます。</p>';
 var p=plan(),work=S.tasks.filter(function(t){return !ID(t)&&AC(t)}).reduce(function(a,t){return a+EST(t)},0);
 document.getElementById('sum').textContent='やること '+work+'分 / 空き時間 '+p.free+'分';
-document.getElementById('sc').innerHTML=p.out.map(function(b){return '<div class="b '+b.ty+'"><span class="t">'+F(b.s)+' - '+F(b.e)+'</span><span class="c">'+E(b.n)+'</span><span class="d">'+(b.e-b.s)+'分</span></div>'}).join('')||'<p class="em">空き時間ややることを入れると、ここに予定が出ます。</p>';
-var ov=document.getElementById('ov');
-if(p.left.length){ov.className='ov';ov.innerHTML='今日は入りきらなかった分があります。明日に回すか、空き時間を増やしましょう。<br>'+p.left.map(function(k){return E(k.nm)+'（残り'+k.rem+'分）'}).join('、')+'<br><button class="g" style="margin-top:8px" onclick="moveLeft()">入りきらなかった分を明日に回す</button>'}else{ov.className='';ov.innerHTML=''}}
+document.getElementById('mo').innerHTML=!p.out.length?'':MAN()?'予定を手動で調整中です（↑↓ で入れ替え）。 <button class="g" onclick="autoP()">自動に戻す</button>':'↑↓ で予定の順番を入れ替えられます。';
+document.getElementById('sc').innerHTML=p.out.map(function(b){return '<div class="b '+b.ty+'"><span class="t">'+F(b.s)+' - '+F(b.e)+'</span><span class="c">'+E(b.n)+'</span><span class="d">'+(b.e-b.s)+'分</span>'+(b.id?'<button class="x" onclick="mv('+b.id+',-1)" aria-label="前へ">↑</button><button class="x" onclick="mv('+b.id+',1)" aria-label="後へ">↓</button>':'')+'</div>'}).join('')||'<p class="em">空き時間ややることを入れると、ここに予定が出ます。</p>';
+var ov=document.getElementById('ov'),hd=S.tasks.filter(HD),h='';
+if(p.left.length)h+='今日は入りきらなかった分があります。明日に回すか、空き時間を増やしましょう。<br>'+p.left.map(function(k){return E(k.nm)+'（残り'+k.rem+'分）'}).join('、')+'<br><button class="g" style="margin-top:8px" onclick="moveLeft()">入りきらなかった分を明日に回す</button>';
+if(hd.length)h+=(h?'<br><br>':'')+'明日に回したタスク '+hd.length+'件<br><button class="g" style="margin-top:8px" onclick="backAll()">全部今日に戻す</button>';
+ov.className=h?'ov':'';ov.innerHTML=h}
 function upd(keep){save();render(keep)}
 document.getElementById('wd').innerHTML=['日','月','火','水','木','金','土'].map(function(d,i){return '<label><input type="checkbox" value="'+i+'" style="width:16px;height:16px;min-height:0">'+d+'</label>'}).join('');
 render();
