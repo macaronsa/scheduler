@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>やりたいこと全部入れるスケジューラー</title>
+<style>
+:root{color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:light-dark(#eef2f1,#12191b);--card:light-dark(#fff,#1b2528);--tx:light-dark(#18272b,#e6eeee);--tx2:light-dark(#566a6f,#9fb2b5);--bd:light-dark(#d5dedd,#2c3a3e);--ac:light-dark(#1f6f78,#5cc0c9);
+--must:light-dark(#a3324a,#f08aa0);--due:light-dark(#8a5a00,#f0bd5c);--want:light-dark(#23725f,#6fd1b7);--rest:light-dark(#5d6d70,#9fb2b5)}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 "Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:21px;margin:0 0 4px;font-weight:700}
+.sub{margin:0 0 18px;color:var(--tx2);font-size:13px}
+h2{font-size:15px;margin:0 0 10px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
+input,select,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;min-height:36px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button{cursor:pointer;background:var(--ac);color:var(--card);border-color:var(--ac);font-weight:700}
+button.g{background:none;color:var(--tx2);border-color:var(--bd);font-weight:400}
+.f{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.r label{font-size:13px;color:var(--tx2)}
+#nm{width:100%}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--bd)}
+li.d .n{text-decoration:line-through;color:var(--tx2)}
+li input[type=checkbox]{width:18px;height:18px;min-height:0;flex:none}
+.n{flex:1;min-width:0;overflow-wrap:anywhere}
+.m{font-size:12px;color:var(--tx2);white-space:nowrap}
+.chip{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.must{color:var(--must)}.due{color:var(--due)}.want{color:var(--want)}.rest{color:var(--rest)}
+.x{background:none;border:0;color:var(--tx2);min-height:32px;padding:0 6px;font-weight:400}
+.sl{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.b{display:flex;gap:10px;align-items:baseline;padding:8px 10px;margin-bottom:6px;border-radius:6px;border-left:4px solid currentColor;background:color-mix(in srgb,currentColor 10%,var(--card))}
+.b .t{font-size:12px;color:var(--tx2);width:96px;flex:none;font-variant-numeric:tabular-nums}
+.b .c{color:var(--tx);flex:1;overflow-wrap:anywhere}
+.b .d{font-size:12px;color:var(--tx2)}
+.sum{font-size:13px;color:var(--tx2);margin:0 0 10px}
+.ov{margin-top:10px;padding:10px;border:1px dashed var(--due);border-radius:6px;font-size:13px;color:var(--tx)}
+.em{color:var(--tx2);font-size:13px;margin:6px 0}
+.wd{display:flex;gap:8px;flex-wrap:wrap}.wd label{font-size:13px;color:var(--tx2);display:flex;align-items:center;gap:3px}
+li.dim{opacity:.55}.ac{width:76px;padding:2px 6px;min-height:30px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>やりたいこと全部入れるスケジューラー</h1>
+<p class="sub">やることと空き時間を入れると、今日の予定が自動で組まれます。データはこのブラウザに保存されます。</p>
+<div class="grid">
+<section class="card"><h2>やること</h2>
+<div class="f">
+<input id="nm" placeholder="基本情報の勉強" aria-label="やることの名前">
+<div class="r"><input id="mn" type="number" min="5" step="5" value="30" style="width:80px" aria-label="所要時間（分）"><span class="m">分</span>
+<select id="ty" aria-label="種類"><option value="must">必須</option><option value="due">期限付き</option><option value="want">やりたいこと</option></select></div>
+<div class="r"><label for="dl">期限</label><input id="dl" type="date"></div>
+<div class="r"><label><input type="checkbox" id="dy" style="width:18px;height:18px;min-height:0;vertical-align:-3px"> 毎日やる</label></div>
+<div class="m">曜日だけやる場合は選ぶ（空なら毎日）</div>
+<div class="wd" id="wd"></div>
+<button onclick="addTask()">やることを追加</button>
+<div class="r"><select id="tp" aria-label="ひな形"><option value="">ひな形から追加</option><option value="inst">楽器練習</option><option value="study">資格勉強</option><option value="morn">朝の準備</option></select><button class="g" onclick="addTpl()">追加</button></div>
+</div>
+<ul id="tl"></ul>
+</section>
+<section class="card"><h2>空き時間</h2>
+<div id="sl"></div>
+<button class="g" onclick="addSlot()">時間帯を追加</button>
+</section>
+</div>
+<section class="card"><h2>今日の予定</h2>
+<p class="sum" id="sum"></p><div id="sc"></div><div id="ov"></div>
+</section>
+</div>
+<script>
+var KEY='sched.v1',LB={must:'必須',due:'期限付き',want:'やりたいこと'};
+var S={tasks:[{id:1,nm:'基本情報の勉強',min:90,ty:'must',dl:'',done:false},{id:2,nm:'レポート',min:120,ty:'due',dl:'',done:false},{id:3,nm:'競プロ1問',min:30,ty:'want',dl:'',done:false}],slots:[{s:'09:00',e:'11:00'},{s:'12:30',e:'13:30'},{s:'16:00',e:'20:00'}]};
+try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.tasks&&p.slots)S=p}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+var TD=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
+function DS(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+var DW=new Date().getDay(),TM=DS(new Date(Date.now()+864e5));
+function dys(){var a=[];document.querySelectorAll('#wd input').forEach(function(c){if(c.checked)a.push(+c.value)});return a}
+function ID(t){return t.daily?t.doneOn===TD:!!t.done}
+function AC(t){if(t.hold&&t.hold>TD)return false;if(t.days&&t.days.length&&t.days.indexOf(DW)<0)return false;return true}
+function A(t){return t.daily?(t.actOn===TD?t.act:''):(t.act||'')}
+function EST(t){var h=S.hist&&S.hist[t.nm];if(!h||!h.length)return t.min;var r=h.reduce(function(a,b){return a+b},0)/h.length;return Math.max(5,Math.round(t.min*r/5)*5)}
+function M(t){var a=(t||'0:0').split(':');return (+a[0])*60+(+a[1]||0)}
+function F(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+function E(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function addTask(){var nm=document.getElementById('nm'),n=nm.value.trim();if(!n){nm.focus();return}
+var mn=Math.max(5,parseInt(document.getElementById('mn').value)||30);
+S.tasks.push({id:Date.now(),nm:n,min:mn,ty:document.getElementById('ty').value,dl:document.getElementById('dl').value,done:false,daily:dys().length>0||document.getElementById('dy').checked,days:dys()});
+nm.value='';document.getElementById('dl').value='';document.getElementById('dy').checked=false;document.querySelectorAll('#wd input').forEach(function(c){c.checked=false});upd()}
+function tog(i){var t=S.tasks.find(function(x){return x.id===i});if(t){if(t.daily){t.doneOn=(t.doneOn===TD)?'':TD}else{t.done=!t.done}upd()}}
+function del(i){S.tasks=S.tasks.filter(function(x){return x.id!==i});upd()}
+function setAct(i,v){var t=S.tasks.find(function(x){return x.id===i}),a=parseInt(v);if(!t||!a||a<1)return;S.hist=S.hist||{};var h=S.hist[t.nm]=S.hist[t.nm]||[];if(A(t)&&h.length)h.pop();h.push(a/t.min);if(h.length>5)h.shift();t.act=a;t.actOn=TD;upd()}
+var TP={inst:[['ロングトーン',10,'must'],['音階・基礎練習',15,'must'],['曲の通し練習',30,'must'],['録音して聴き返す',15,'want']],study:[['過去問を解く',30,'must'],['間違えた問題の復習',20,'must'],['暗記カード',10,'want']],morn:[['身支度と朝食',40,'must'],['今日の予定の確認',5,'must']]};
+function addTpl(){var k=document.getElementById('tp').value;if(!k)return;TP[k].forEach(function(x,i){S.tasks.push({id:Date.now()+i,nm:x[0],min:x[1],ty:x[2],dl:'',done:false,daily:false,days:[]})});document.getElementById('tp').value='';upd()}
+function moveLeft(){plan().left.forEach(function(k,i){var t=S.tasks.find(function(x){return x.id===k.id});if(!t||t.daily)return;if(k.rem<k.tot){S.tasks.push({id:Date.now()+i,nm:t.nm+'（続き）',min:k.rem,ty:t.ty,dl:t.dl,done:false,daily:false,days:[],hold:TM});t.min=Math.max(5,t.min-Math.round(k.rem*t.min/k.tot))}else{t.hold=TM}});upd()}
+function addSlot(){S.slots.push({s:'20:00',e:'21:00'});upd()}
+function delSlot(i){S.slots.splice(i,1);upd()}
+function setSlot(i,k,v){if(v){S.slots[i][k]=v;upd(true)}}
+function plan(){
+var sl=S.slots.map(function(x){return{s:M(x.s),e:M(x.e)}}).filter(function(x){return x.e>x.s}).sort(function(a,b){return a.s-b.s});
+var pr={must:0,due:1,want:2};
+var q=S.tasks.filter(function(t){return !ID(t)&&AC(t)}).map(function(t){var e=EST(t);return{id:t.id,nm:t.nm,ty:t.ty,dl:t.dl,rem:e,tot:e}})
+.sort(function(a,b){return (pr[a.ty]-pr[b.ty])||(a.dl||'9999').localeCompare(b.dl||'9999')});
+var out=[];
+sl.forEach(function(x,i){var t=x.s,end=x.e,last=i===sl.length-1;if(last&&end-t>=90)end-=30;
+while(t<end&&q.length){var k=q[0],c=Math.min(k.rem,end-t);if(c<15&&k.rem>c)break;
+out.push({s:t,e:t+c,n:k.nm,ty:k.ty});t+=c;k.rem-=c;if(!k.rem)q.shift();
+if(q.length&&t+10<=end){out.push({s:t,e:t+10,n:'休憩',ty:'rest'});t+=10}}
+if(last&&end<x.e)out.push({s:end,e:x.e,n:'予備時間',ty:'rest'})});
+return{out:out,left:q,free:sl.reduce(function(a,x){return a+x.e-x.s},0)}}
+function render(slots){
+if(!slots){document.getElementById('sl').innerHTML=S.slots.map(function(x,i){return '<div class="sl"><input type="time" value="'+E(x.s)+'" onchange="setSlot('+i+',\'s\',this.value)" aria-label="開始"><span class="m">から</span><input type="time" value="'+E(x.e)+'" onchange="setSlot('+i+',\'e\',this.value)" aria-label="終了"><button class="x" onclick="delSlot('+i+')" aria-label="削除">削除</button></div>'}).join('')||'<p class="em">空き時間を追加すると、予定が組まれます。</p>'}
+var tl=document.getElementById('tl');
+tl.innerHTML=S.tasks.map(function(t){return '<li class="'+(ID(t)?'d ':'')+(AC(t)?'':'dim')+'"><input type="checkbox" '+(ID(t)?'checked':'')+' onchange="tog('+t.id+')" aria-label="完了"><span class="n">'+E(t.nm)+'</span><span class="m">'+t.min+'分'+(EST(t)!==t.min?'→'+EST(t)+'分':'')+(t.hold&&t.hold>TD?' 明日へ':'')+(t.dl?' 〜'+E(t.dl.slice(5).replace('-','/')):'')+'</span><span class="chip '+t.ty+'">'+LB[t.ty]+'</span>'+(t.daily?'<span class="chip rest">'+(t.days&&t.days.length?t.days.map(function(d){return '日月火水木金土'[d]}).join(''):'毎日')+'</span>':'')+(ID(t)?'<input class="ac" type="number" min="1" placeholder="実績分" value="'+A(t)+'" onchange="setAct('+t.id+',this.value)" aria-label="かかった時間（分）">':'')+'<button class="x" onclick="del('+t.id+')" aria-label="削除">削除</button></li>'}).join('')||'<p class="em">やることを追加すると、ここに並びます。</p>';
+var p=plan(),work=S.tasks.filter(function(t){return !ID(t)&&AC(t)}).reduce(function(a,t){return a+EST(t)},0);
+document.getElementById('sum').textContent='やること '+work+'分 / 空き時間 '+p.free+'分';
+document.getElementById('sc').innerHTML=p.out.map(function(b){return '<div class="b '+b.ty+'"><span class="t">'+F(b.s)+' - '+F(b.e)+'</span><span class="c">'+E(b.n)+'</span><span class="d">'+(b.e-b.s)+'分</span></div>'}).join('')||'<p class="em">空き時間ややることを入れると、ここに予定が出ます。</p>';
+var ov=document.getElementById('ov');
+if(p.left.length){ov.className='ov';ov.innerHTML='今日は入りきらなかった分があります。明日に回すか、空き時間を増やしましょう。<br>'+p.left.map(function(k){return E(k.nm)+'（残り'+k.rem+'分）'}).join('、')+'<br><button class="g" style="margin-top:8px" onclick="moveLeft()">入りきらなかった分を明日に回す</button>'}else{ov.className='';ov.innerHTML=''}}
+function upd(keep){save();render(keep)}
+document.getElementById('wd').innerHTML=['日','月','火','水','木','金','土'].map(function(d,i){return '<label><input type="checkbox" value="'+i+'" style="width:16px;height:16px;min-height:0">'+d+'</label>'}).join('');
+render();
+</script>
+</body>
+</html>
