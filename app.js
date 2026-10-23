@@ -123,7 +123,7 @@
     const estimate = C.estimate(task, state, selected);
     const active = C.isActive(task, selected), repeat = task.daily ? task.days.length ? task.days.map(day => weekdays[day]).join('・') : '毎日' : '';
     const deadline = dueText(task), future = task.hold > selected ? task.hold : task.createdOn > selected ? task.createdOn : '';
-    return `<li class="task-item${done ? ' done' : ''}${deferred ? ' deferred' : ''}"><button class="task-check" data-action="toggle" data-id="${escape(task.id)}" aria-pressed="${done}" aria-label="${escape(task.nm)}を${done ? '未完了に戻す' : '完了にする'}"${!active && (task.daily || !done) ? ' disabled' : ''}>${done ? icon('check') : ''}</button><div class="task-body"><button class="task-name" data-action="edit" data-id="${escape(task.id)}">${escape(task.nm)}</button><div class="task-tags"><span>${estimate}分${estimate !== task.min ? `（入力${task.min}分）` : ''}</span><span class="task-tag ${task.ty}">${C.labels[task.ty]}</span>${repeat ? `<span>↻ ${repeat}</span>` : ''}${deadline ? `<span class="${task.dl < selected && !done ? 'deadline-overdue' : ''}">${deadline}</span>` : ''}${future ? `<span>${Number(future.slice(5, 7))}/${Number(future.slice(8))} から</span>` : ''}${task.daily && task.skips[selected] ? '<span>この日はスキップ</span>' : ''}${done && task.doneDate && task.doneDate !== selected ? `<span>${task.doneDate} 完了</span>` : ''}</div>${deferred && task.createdOn <= selected ? `<button class="text-button" data-action="restore" data-id="${escape(task.id)}">この日に戻す</button>` : ''}</div><button class="icon-button task-edit" data-action="edit" data-id="${escape(task.id)}" aria-label="${escape(task.nm)}を編集">${icon('edit')}</button></li>`;
+    return `<li class="task-item${done ? ' done' : ''}${deferred ? ' deferred' : ''}"><button class="task-check" data-action="toggle" data-id="${escape(task.id)}" aria-pressed="${done}" aria-label="${escape(task.nm)}を${done ? '未完了に戻す' : '完了にする'}"${!active && (task.daily || !done) ? ' disabled' : ''}>${done ? icon('check') : ''}</button><div class="task-body"><button class="task-name" data-action="edit" data-id="${escape(task.id)}">${escape(task.nm)}</button><div class="task-tags"><span>${estimate}分${estimate !== task.min ? `（入力${task.min}分）` : ''}</span><span class="task-tag ${task.ty}">${C.labels[task.ty]}</span>${repeat ? `<span>↻ ${repeat}</span>` : ''}${deadline ? `<span class="${task.dl < selected && !done ? 'deadline-overdue' : ''}">${deadline}</span>` : ''}${future ? `<span>${Number(future.slice(5, 7))}/${Number(future.slice(8))} から</span>` : ''}${task.daily && task.skips[selected] ? '<span>この日はスキップ</span>' : ''}${done && task.doneDate && task.doneDate !== selected ? `<span>${task.doneDate} 完了</span>` : ''}</div>${deferred && task.createdOn <= selected ? `<button class="text-button" data-action="restore" data-id="${escape(task.id)}">この日に戻す</button>` : ''}</div><div class="task-row-actions"><button class="icon-button task-edit" data-action="edit" data-id="${escape(task.id)}" aria-label="${escape(task.nm)}を編集">${icon('edit')}</button><button type="button" class="task-delete" data-action="delete" data-id="${escape(task.id)}" aria-label="${escape(task.nm)}を削除">削除</button></div></li>`;
   }
   function renderTasks() {
     document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === filter)));
@@ -212,9 +212,12 @@
     }, existing ? 'タスクを更新しました' : 'タスクを追加しました', true);
     $('task-dialog').close();
   });
+  function deleteTask(id) {
+    if (!taskById(id)) return;
+    mutate(() => { state.tasks = state.tasks.filter(task => task.id !== id); }, 'タスクを削除しました', true);
+  }
   $('delete-task').addEventListener('click', () => {
-    if (!editId) return;
-    mutate(() => { state.tasks = state.tasks.filter(task => task.id !== editId); }, 'タスクを削除しました', true);
+    deleteTask(editId);
     $('task-dialog').close();
   });
   $('task-recurring').addEventListener('change', () => { $('repeat-fields').hidden = !$('task-recurring').checked; });
@@ -280,6 +283,7 @@
     const id = button.dataset.id, task = id ? taskById(id) : null;
     switch (button.dataset.action) {
       case 'edit': openTask(id); break;
+      case 'delete': deleteTask(id); break;
       case 'toggle':
         if (task) {
           mutate(() => { if (!task.daily && task.doneDate && filter === 'all') task.doneDate = ''; else C.toggleTask(task, selected); }, '', true);

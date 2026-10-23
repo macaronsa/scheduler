@@ -10,3 +10,6 @@
 @media(max-width:560px){.pomodoro-panel{padding:18px}.pomodoro-panel h2{font-size:15px}.timer-modes button{font-size:11px}.timer-task-label{font-size:11px}#timer-task{min-height:40px;font-size:12px}.timer-controls>.primary{font-size:12px;min-height:43px}.timer-reset{min-height:43px}.timer-status{font-size:11px}.timer-footer{font-size:10px}}
 #pomodoro-heading{scroll-margin-top:28px}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+.task-row-actions{display:flex;align-items:center;gap:4px;flex:none}.task-delete{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:32px;padding:4px 7px;background:transparent;color:var(--due);border:1px solid var(--line);border-radius:6px;font-size:11px;white-space:nowrap}.task-delete:hover{background:var(--due-bg);border-color:var(--due)}
+@media(max-width:560px){.task-delete{min-height:44px}.task-row-actions .task-edit{height:44px}}

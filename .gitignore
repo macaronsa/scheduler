@@ -1,0 +1,8 @@
+# Personal schedule backups: ignore JSON files in every directory.
+*.json
+
+# Local screenshots and browser test output.
+preview/
+
+# Original page kept as a local backup.
+index.original.html
